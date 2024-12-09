@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-def export_time_series(file):
+def export_time_series(data):
     # Importação dos dados
-    df = pd.read_pickle('datasets/' + file + '.pkl')
+    df = pd.read_pickle('datasets/dados_' + data + '.pkl')
 
     # Filtros
     clients = df['ClientMac'].unique()
@@ -42,12 +42,10 @@ def export_time_series(file):
                 
                 # Verifica se não há número de medições de download-upload diferentes
                 if num_med_d != num_med_u:
-                    print(f'Client: {c}, Site: s, num_med_d:{num_med_d}, num_med_u:{num_med_u}')
+                    print(f'Client: {c}, Site: {s}, num_med_d:{num_med_d}, num_med_u:{num_med_u}')
 
     # Conjunto de medições
     df_series = pd.DataFrame(med)
-    df_series.to_pickle('datasets/ts_ndt.pkl')
+    df_series.to_pickle('datasets/ts_' + data + '.pkl')
 
-    return None
-
-export_time_series('dados_ndt')
+    return df_series

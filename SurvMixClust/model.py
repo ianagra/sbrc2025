@@ -7,7 +7,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 import numpy as np
 import pandas as pd
 
-from utils import X_Xd_from_set, surv_df_from_model,\
+from SurvMixClust.utils import X_Xd_from_set, surv_df_from_model,\
     labels_from_model, best_model_keys_from_info_list_K, plot_kms_clusters, cluster_EM,\
     select_bandwidth
 
