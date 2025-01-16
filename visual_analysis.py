@@ -134,12 +134,12 @@ def plot_changepoints(data, client, site, variable, ylim=None, multivariate=Fals
 
     plt.tight_layout()
     if save_fig:
-        if multivariate:
-            output_dir = 'imgs_mv'
-        else:
-            output_dir = 'imgs'
+        output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, f"{client}_{site}_{variable}.png")
+        if multivariate:
+            output_file = os.path.join(output_dir, f"{client}_{site}_{variable}_mv.png")
+        else:
+            output_file = os.path.join(output_dir, f"{client}_{site}_{variable}.png")
         plt.savefig(output_file)
     plt.show()
 
@@ -344,12 +344,12 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
 
     plt.tight_layout()
     if save_fig:
-        if multivariate:
-            output_dir = 'imgs_mv'
-        else:
-            output_dir = 'imgs'
+        output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, f"{filename}.png")
+        if multivariate:
+            output_file = os.path.join(output_dir, f"{filename}_mv.png")
+        else:
+            output_file = os.path.join(output_dir, f"{filename}.png")
         plt.savefig(output_file)
     plt.show()
 
@@ -438,12 +438,12 @@ def plot_decrement(clients, metric, decrement=True, multivariate=False, save_fig
     # Ajusta o layout da figura
     plt.tight_layout()
     if save_fig:
-        if multivariate:
-            output_dir = 'imgs_mv'
-        else:
-            output_dir = 'imgs'
+        output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, f"{filename}.png")
+        if multivariate:
+            output_file = os.path.join(output_dir, f"{filename}_mv.png")
+        else:
+            output_file = os.path.join(output_dir, f"{filename}.png")
         plt.savefig(output_file)
     plt.show()
 
@@ -531,12 +531,12 @@ def plot_decrement_dual(client_list1, client_list2, metric, decrement=True, mult
     # Ajusta o layout da figura
     plt.tight_layout()
     if save_fig:
-        if multivariate:
-            output_dir = 'imgs_mv'
-        else:
-            output_dir = 'imgs'
+        output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, f"{filename}.png")
+        if multivariate:
+            output_file = os.path.join(output_dir, f"{filename}_mv.png")
+        else:
+            output_file = os.path.join(output_dir, f"{filename}.png")
         plt.savefig(output_file)
     plt.show()
 
