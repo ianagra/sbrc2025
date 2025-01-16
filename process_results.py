@@ -128,3 +128,75 @@ def assign_labels(survival_df, data, timestamp_col='timestamp', survival_functio
     print(f"Clusters associados e séries temporais salvas em: {output_dir}")
 
     return survival_df
+
+
+def calculate_cluster_proportions(df_surv):
+    """
+    Calcula a proporção de tempo em cada cluster separadamente para clientes e servidores.
+    
+    Parameters:
+    df_surv (pd.DataFrame): DataFrame com colunas 'time', 'cluster' e colunas one-hot para clientes e servidores
+    
+    Returns:
+    tuple: (client_proportions, site_proportions) - DataFrames com as proporções de tempo por cluster
+    """
+    # Identificar colunas de clientes e servidores
+    client_cols = [col for col in df_surv.columns if col.startswith('client_')]
+    site_cols = [col for col in df_surv.columns if col.startswith('site_')]
+    
+    # Função auxiliar para calcular proporções
+    def calculate_entity_proportions(entity_cols, entity_prefix):
+        results = []
+        
+        for entity_col in entity_cols:
+            # Filtrar registros para esta entidade
+            subset = df_surv[df_surv[entity_col] == 1]
+            
+            if len(subset) > 0:
+                # Calcular tempo total para esta entidade
+                total_time = subset['time'].sum()
+                
+                # Calcular tempo por cluster
+                cluster_times = subset.groupby('cluster')['time'].sum()
+                
+                # Calcular proporções
+                proportions = cluster_times / total_time
+                
+                # Criar registro para esta entidade
+                for cluster, proportion in proportions.items():
+                    results.append({
+                        'entity': entity_col.replace(entity_prefix, ''),
+                        'cluster': cluster,
+                        'proportion': proportion,
+                        'total_time': total_time
+                    })
+        
+        # Criar DataFrame com os resultados
+        result_df = pd.DataFrame(results)
+        
+        if len(result_df) > 0:
+            # Pivotear a tabela para ter clusters como colunas
+            pivot_df = result_df.pivot_table(
+                index='entity',
+                columns='cluster',
+                values='proportion',
+                fill_value=0
+            )
+            
+            # Adicionar coluna de tempo total
+            total_time_df = result_df.groupby('entity')['total_time'].first()
+            pivot_df['total_time'] = total_time_df
+            
+            # Renomear colunas de cluster para melhor clareza
+            pivot_df.columns = [f'cluster_{c}' if isinstance(c, (int, float)) else c 
+                              for c in pivot_df.columns]
+            
+            return pivot_df
+        
+        return pd.DataFrame()
+    
+    # Calcular proporções para clientes e servidores
+    client_proportions = calculate_entity_proportions(client_cols, 'client_')
+    site_proportions = calculate_entity_proportions(site_cols, 'site_')
+    
+    return client_proportions, site_proportions
