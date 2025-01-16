@@ -479,7 +479,7 @@ def plot_kms_clusters(info, time_max, show_n_samples=True):
     import plotly.io as pio
     pio.templates.default = "plotly_white"
     
-    title = "Curva de Kaplan-Meier de cada cluster para o conjunto de treinamento"
+    title = "Curva de Kaplan-Meier de cada cluster"
 
     g = go.Figure()
 
@@ -571,7 +571,7 @@ def plot_kms_clusters(info, time_max, show_n_samples=True):
                         font_size = 15,
                         xanchor = 'center',
                         yanchor = 'middle'
-                    ), xaxis_title = 'Unidades de tempo',
+                    ), xaxis_title = 'Tempo (dias)',
                         yaxis_title = 'Probabilidade',
                     legend = dict(title = 'Clusters'),
                     height = 500, width=950
