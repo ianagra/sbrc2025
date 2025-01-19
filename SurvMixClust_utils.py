@@ -406,27 +406,32 @@ def info_flat_from_info_list_K(info_list_K):
         DataFrame contendo uma linha para cada execução do algoritmo EM com as principais métricas.
     """
     
-    columns = ['n_clusters', 'idx', 'cindex_val', 'cindex',
-               'integrated_nbll_val', 'integrated_nbll',
-               'integrated_brier_score_val', 'integrated_brier_score'
+    columns = ['n_clusters', 'idx', 'cindex',
+               'integrated_nbll',
+               'integrated_brier_score'
               ]
 
     info_flat = pd.DataFrame(columns=columns)
+    
     for n_clusters in info_list_K.keys():
-
         for idx, info in enumerate(info_list_K[n_clusters]):
-
             info['ite'] = info['cindex_by_ite'][-1]['ite']
-
             info_list_K[n_clusters][idx] = info        
 
-            if info['cindex_val_by_ite'][-1]['cindex'] != -1:
-
-                info_flat = info_flat.append(pd.DataFrame(data=[[n_clusters, idx, info['cindex_val_by_ite'][-1]['cindex'], info['cindex_last'],\
-                                              info['cindex_val_by_ite'][-1]['integrated_nbll'], info['cindex_by_ite'][-1]['integrated_nbll'],
-                                              info['cindex_val_by_ite'][-1]['integrated_brier_score'], info['cindex_by_ite'][-1]['integrated_brier_score'],
-                                              ]],
-                                              columns=columns))
+            # Sempre adiciona as métricas do treinamento
+            info_flat = info_flat.append(
+                pd.DataFrame(
+                    data=[[
+                        n_clusters, 
+                        idx,
+                        info['cindex_by_ite'][-1]['cindex'],
+                        info['cindex_by_ite'][-1]['integrated_nbll'],
+                        info['cindex_by_ite'][-1]['integrated_brier_score']
+                    ]],
+                    columns=columns
+                ),
+                ignore_index=True
+            )
 
     return info_flat
 
@@ -448,7 +453,7 @@ def best_model_keys_from_info_list_K(info_list_K):
     
     info_flat = info_flat_from_info_list_K(info_list_K)
     
-    best_model_row = info_flat.sort_values(by=['cindex_val']).iloc[-1,:]
+    best_model_row = info_flat.sort_values(by=['cindex']).iloc[-1,:]
 
     sub_experiment_key = best_model_row['n_clusters']
     idx = best_model_row['idx']
@@ -608,19 +613,18 @@ def cluster_EM(X, Xd, X_val, Xd_val, n_clusters, n_iterations, global_fixed_bw):
 
     info_list = list() 
 
-    # Random cluster initialization
-    new_random_init_n_clusters = n_clusters
-
-    new_labels = np.random.randint(0,new_random_init_n_clusters,len(Xd))
+    # Inicialização dos clusters
+    new_labels = np.random.randint(0, n_clusters, len(Xd))
     ordered_labels = np.sort(np.unique(new_labels))
     updated_clusters = {(label): list(np.argwhere(new_labels==label).flatten()) for label in ordered_labels}
     X['labels'] = new_labels
 
-    new_medoids = {k:[] for k in range(new_random_init_n_clusters)}
+    # Inicialização dos medoides
+    new_medoids = {k:[] for k in range(n_clusters)}
     for l in ordered_labels:
         new_medoids[l] = Xd.loc[updated_clusters[l],:].mean().values
 
-    # Generating the initial kmfs for the randomly initiated clusterization.
+    # Inicialização dos Kaplan-Meier
     clusters = updated_clusters.copy()
     idxs = list(clusters.keys())
     kmfs = dict()
@@ -628,18 +632,15 @@ def cluster_EM(X, Xd, X_val, Xd_val, n_clusters, n_iterations, global_fixed_bw):
         time_km, event_km = X.iloc[clusters[i],:]['time'].astype('float32'), X.iloc[clusters[i],:]['event'].astype('float32')
         kmf = KaplanMeierFitter()  
         kmf.fit(time_km, event_km)
-
         kmfs[i] = {'kmf': kmf}
 
-    # Initializing some variables.
+    # Inicialização das listas de métricas
     iterations = n_iterations
     cindex_by_ite = list()
-    cindex_val_by_ite = list()
-
+    
     try:
 
-        # Main EM algorithm
-        val_tests = 1
+        # Algoritmo EM principal
         time_algorithm = time.time()
         for ite in np.arange(iterations):
 
@@ -649,50 +650,33 @@ def cluster_EM(X, Xd, X_val, Xd_val, n_clusters, n_iterations, global_fixed_bw):
             
             X['labels'] = new_labels  
             
-            # Formally, this logistic regression still corresponds to the Maximization step.
+            # Treinamento da regressão logística
             from sklearn.linear_model import LogisticRegression
             logit = LogisticRegression(max_iter=5000)
-            logit.fit(Xd,new_labels)
+            logit.fit(Xd, new_labels)
             logit_proba = logit.predict_proba(Xd)
 
             ###################
             ### Expectation ###
             ###################
             
-            if (ite%3) == 0:
-
+            # Cálculo das métricas a cada 3 iterações
+            if (ite % 3) == 0:
                 metrics = cindex_km_from_model(X, Xd, logit, kmfs, global_fixed_bw)
-
                 snap_cindex = metrics['cindex']
+                cindex_by_ite.append({
+                    'ite': ite, 
+                    'cindex': snap_cindex,
+                    'integrated_brier_score': metrics['integrated_brier_score'],
+                    'integrated_nbll': metrics['integrated_nbll']
+                })
+                print(f'\t# cindex with train_set at iteration {ite}: {snap_cindex}')
 
-                cindex_by_ite.append({'ite':ite, 'cindex':snap_cindex,
-                                      'integrated_brier_score': metrics['integrated_brier_score'],
-                                      'integrated_nbll': metrics['integrated_nbll']})
-
-
-                print(f'\t# cindex (with labels) with train_set at iteration {ite}: {snap_cindex}')
-
-                if val_tests:
-
-                    metrics = cindex_km_from_model(X_val, Xd_val, logit, kmfs, global_fixed_bw)
-
-                    snap_cindex = metrics['cindex']
-
-                    cindex_val_by_ite.append({'ite':ite, 'cindex':snap_cindex,
-                                              'integrated_brier_score': metrics['integrated_brier_score'],
-                                              'integrated_nbll': metrics['integrated_nbll']})
-
-                    print(f'\t# cindex (with labels) with val_set at iteration {ite}: {snap_cindex}')
-
-
-            if (len(cindex_by_ite)>2):   
-                if (abs(cindex_by_ite[-2]['cindex'] - cindex_by_ite[-1]['cindex'])<1e-6):
-                    print(f"\t\tcindex_by_ite[-2]['cindex']: {cindex_by_ite[-2]['cindex']}, cindex_by_ite[-1]['cindex']: {cindex_by_ite[-1]['cindex']}")
-                    print(f"\t\tcindex_val_by_ite[-2]['cindex']: {cindex_val_by_ite[-2]['cindex']}, cindex_val_by_ite[-1]['cindex']: {cindex_val_by_ite[-1]['cindex']}")
-                    print(f'######## Converged: {ite} ########')
-                    print(f'######## Time for all iterations:{timedelta(seconds=time.time() - time_algorithm)} ########\n\n')
+            # Verificação de convergência
+            if len(cindex_by_ite) > 2:
+                if abs(cindex_by_ite[-2]['cindex'] - cindex_by_ite[-1]['cindex']) < 1e-6:
+                    print(f'######## Converged at iteration: {ite} ########')
                     break
-
 
             list_rns = list()
             for l in ordered_labels:
@@ -751,22 +735,20 @@ def cluster_EM(X, Xd, X_val, Xd_val, n_clusters, n_iterations, global_fixed_bw):
 
             print("\tTime elapsed for the entire iteration: ", timedelta(seconds=time.time() - time_max))
 
-        if empty_kmf:
-            print('Error for a single EM run. Skipped. Reason: empty_kmf.\n\n')
-        else:
-
-            dict_to_store = {'kmfs': deepcopy(kmfs), 'logit': logit, 'new_labels' : new_labels, 'global_fixed_bw' : global_fixed_bw,
-                              'cindex_by_ite': deepcopy(cindex_by_ite),'cindex_last': cindex_by_ite[-1]['cindex'],
-                              'cindex_val_by_ite': deepcopy(cindex_val_by_ite),'cindex_val_last': cindex_val_by_ite[-1]['cindex']
-                              }
-
+        # Salvar informações do modelo
+        if len(cindex_by_ite) > 0:  # Garante que temos pelo menos uma métrica
+            dict_to_store = {
+                'kmfs': deepcopy(kmfs), 
+                'logit': logit, 
+                'new_labels': new_labels,
+                'global_fixed_bw': global_fixed_bw,
+                'cindex_by_ite': deepcopy(cindex_by_ite),
+                'cindex_last': cindex_by_ite[-1]['cindex']
+            }
             info_list.append(dict_to_store)
-
+            
     except Exception as error:
-
-        # Show the error type and exit this EM run.
         print("An exception occurred:", type(error).__name__, "–", error)
         print('Error for a single EM run. Skipped.\n\n')
-
-
+    
     return info_list

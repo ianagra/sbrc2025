@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 def plot_changepoints(data, client, site, variable, ylim=None, multivariate=False, 
                  plot_votes=True, plot_probs=True, save_fig=False):
@@ -145,8 +146,8 @@ def plot_changepoints(data, client, site, variable, ylim=None, multivariate=Fals
 
 
 def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True, 
-                    plot_votes=True, plot_probs=True, multivariate=False, thr_max=900,
-                    rtt_max=250, save_fig=False, filename=None):
+               plot_votes=True, plot_probs=True, multivariate=False, thr_max=900,
+               rtt_max=250, save_fig=False, filename=None):
     """
     Plota os valores de todas as variáveis ao longo do tempo para múltiplos pares (cliente, site),
     com opção de incluir gráficos de votos e probabilidades para cada feature.
@@ -168,10 +169,16 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
         Se True, inclui gráficos com o número de votos para cada feature.
     plot_probs : bool, default=True
         Se True, inclui gráficos com as probabilidades dos votos para cada feature.
-    ylim : tuple or None, optional
-        Limites do eixo Y (será sobrescrito pelos limites específicos de cada variável).
     multivariate : bool, default=False
         Se True, usa a abordagem multivariada do VWCD.
+    thr_max : int, default=900
+        Valor máximo para o eixo y dos gráficos de throughput
+    rtt_max : int, default=250
+        Valor máximo para o eixo y dos gráficos de RTT
+    save_fig : bool, default=False
+        Se True, salva a figura em arquivo
+    filename : str, optional
+        Nome do arquivo para salvar a figura
     """
     variables = ['throughput_download', 'throughput_upload', 'rtt_download', 'rtt_upload']
     
@@ -185,6 +192,36 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
         'probs': (0, 1),
         'survival': (0, 1)
     }
+    
+    def get_cluster_color(cluster, probability):
+        """Retorna a cor do cluster com base na probabilidade."""
+        if probability < 0.65:
+            intensity = 0.3  # Tom mais claro
+        else:
+            intensity = 1.0   # Tom mais escuro
+
+        if cluster == 0:  # Tons de vermelho
+            return mcolors.to_hex((1, 1 - intensity, 1 - intensity))
+        else:  # Tons de azul
+            return mcolors.to_hex((1 - intensity, 1 - intensity, 1))
+
+    def create_color_legend(fig, ax):
+        """Cria uma legenda de cores mostrando os três tons para cada cluster."""
+        legend_elements = []
+        
+        # Cluster 0 (vermelho)
+        legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(0, 0.5), 
+                            label=f'C0: P<0.65'))
+        legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(0, 0.9), 
+                            label=f'C0: P>=0.65'))
+        
+        # Cluster 1 (azul)
+        legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(1, 0.5), 
+                            label=f'C1: P<0.65'))
+        legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(1, 0.9), 
+                            label=f'C1: P>=0.65'))
+        
+        return legend_elements
     
     # Calcular número de subplots por feature
     plots_per_feature = 1 + (1 if plot_votes else 0) + (1 if plot_probs else 0)
@@ -262,9 +299,6 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
             axes_dict[('survival', 'main', pair_idx)] = ax_surv
             ax_surv.set_xlim(x_min, x_max)
             ax_surv.set_ylim(*y_limits['survival'])
-
-    # O resto da função permanece igual, apenas substituindo a referência à coluna
-    # por pair_idx nos axes_dict
     
     # Plotar dados para cada par
     for pair_idx, (client, site) in enumerate(pairs):
@@ -282,27 +316,38 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
         df = pd.read_parquet(file_path)
         df = df.sort_values('timestamp')
 
+        # Aplicar a função de cor baseada no cluster e probabilidade
+        df['color'] = df.apply(lambda row: get_cluster_color(
+            row['cluster'], 
+            row['cluster_probability'] if 'cluster_probability' in row else 1.0
+        ), axis=1)
+
         linestyles = {'local_mean': '--', 'changepoints': ':'}
-        cluster_colors = {0: 'red', 1: 'blue'}
-        df['color'] = df['cluster'].map(cluster_colors).fillna('gray')
 
         # Plotar cada variável e seus gráficos associados
         for variable in variables:
-            # Obter o axis principal para a variável
             ax_main = axes_dict[(variable, 'main', pair_idx)]
             
-            # Determinar coluna de changepoints
             changepoint_column = 'cp' if multivariate else f"{variable}_cp"
             votes_column = 'votes' if multivariate else f"{variable}_votes"
             probs_column = 'agg_probs' if multivariate else f"{variable}_agg_probs"
 
-            # Plotar série temporal
+            # Plotar série temporal com cores baseadas na probabilidade
             for i in range(len(df) - 1):
                 ax_main.plot(df['timestamp'].iloc[i:i+2], df[variable].iloc[i:i+2],
                            color=df['color'].iloc[i], linewidth=1)
 
-            for cluster, color in cluster_colors.items():
-                ax_main.plot([], [], color=color, label=f'Cluster {cluster}')
+            # Adicionar legenda de cores apenas no primeiro gráfico
+            if pair_idx == 0 and variable == variables[0]:
+                legend_elements = create_color_legend(fig, ax_main)
+                ax_main.legend(handles=legend_elements, 
+                            loc='upper left', 
+                            bbox_to_anchor=(1.05, 0.5),
+                            prop={'size': 6},  # tamanho da fonte
+                            labelspacing=0.1,  # espaço vertical entre itens
+                            handlelength=1,    # tamanho da linha
+                            handletextpad=0.2  # espaço entre linha e texto
+                            )
 
             if local_mean and f'{variable}_local_mean' in df.columns:
                 ax_main.plot(df['timestamp'], df[f'{variable}_local_mean'],
@@ -357,7 +402,8 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
     for row in range(num_pair_rows):
         last_col_in_row = min((row + 1) * max_cols, len(pairs)) - 1
         for variable in variables:
-            axes_dict[(variable, 'main', last_col_in_row)].legend()
+            if variable != variables[0]:  # Não adicionar legenda onde já temos a legenda de cores
+                axes_dict[(variable, 'main', last_col_in_row)].legend()
         if survival:
             axes_dict[('survival', 'main', last_col_in_row)].legend()
 

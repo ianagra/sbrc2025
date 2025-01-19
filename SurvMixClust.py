@@ -68,32 +68,15 @@ class SurvMixClust(BaseEstimator):
         # Check that X and y have correct shape.
         X, y = check_X_y(X, y)
 
-        split_ = StratifiedShuffleSplit(n_splits=1, test_size=0.25,
-                                        random_state=np.random.randint(100))
-
-        X_input, E_input = X.astype('float32'), y['event']
-
-        train_set_index = np.array([])
-        val_set_index = np.array([])
-        for train_index, val_index in split_.split(X_input, E_input):
-
-            train_set_index = train_index
-            val_set_index = val_index
-
         X = pd.DataFrame(data=X)
-        train_set = X.loc[train_set_index]
-        train_set['time'] = y['time'][train_set_index]
-        train_set['event'] = y['event'][train_set_index]
-
-        val_set = X.loc[val_set_index]
-        val_set['time'] = y['time'][val_set_index]
-        val_set['event'] = y['event'][val_set_index]
+        data_set = pd.DataFrame(data=X)
+        data_set['time'] = y['time']
+        data_set['event'] = y['event']
 
         self.time_max = y['time'].max()
 
-        features_used = train_set.columns[:]
-        X, Xd = X_Xd_from_set(train_set, features_used)
-        X_val, Xd_val = X_Xd_from_set(val_set, features_used)
+        features_used = data_set.columns[:]
+        X, Xd = X_Xd_from_set(data_set, features_used)
 
         self.global_fixed_bw = select_bandwidth(X)
 #         self.global_fixed_bw = [17.52130828203924, 12.733703749619613] # support
@@ -126,7 +109,7 @@ class SurvMixClust(BaseEstimator):
 
             else:
                 print(f"Parallel processing for {n_cluster} number of clusters, n_jobs: {self.n_jobs}.")
-                list_list_dicts = Parallel(n_jobs=n_jobs)(delayed(cluster_EM)(X, Xd, X_val, Xd_val,
+                list_list_dicts = Parallel(n_jobs=n_jobs)(delayed(cluster_EM)(X, Xd, X, Xd,
                                                                                   n_cluster,
                                                                                   n_iterations, global_fixed_bw)
                                                           for ite_gen in np.arange(number_parallel_tries))
