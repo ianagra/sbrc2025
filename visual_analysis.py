@@ -147,7 +147,7 @@ def plot_changepoints(data, client, site, variable, ylim=None, multivariate=Fals
 
 def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True, 
                plot_votes=True, plot_probs=True, multivariate=False, thr_max=900,
-               rtt_max=250, save_fig=False, filename=None):
+               rtt_max=250, save_fig=False, filename=None, legend_pos='upper left'):
     """
     Plota os valores de todas as variáveis ao longo do tempo para múltiplos pares (cliente, site),
     com opção de incluir gráficos de votos e probabilidades para cada feature.
@@ -205,21 +205,21 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
         else:  # Tons de azul
             return mcolors.to_hex((1 - intensity, 1 - intensity, 1))
 
-    def create_color_legend(fig, ax):
+    def create_color_legend():
         """Cria uma legenda de cores mostrando os três tons para cada cluster."""
         legend_elements = []
         
         # Cluster 0 (vermelho)
         legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(0, 0.5), 
-                            label=f'C0: P<0.65'))
+                            label=f'Cluster 0: P < 0.65'))
         legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(0, 0.9), 
-                            label=f'C0: P>=0.65'))
+                            label=f'Cluster 0: P >= 0.65'))
         
         # Cluster 1 (azul)
         legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(1, 0.5), 
-                            label=f'C1: P<0.65'))
+                            label=f'Cluster 1: P < 0.65'))
         legend_elements.append(plt.Line2D([0], [0], color=get_cluster_color(1, 0.9), 
-                            label=f'C1: P>=0.65'))
+                            label=f'Cluster 1: P >= 0.65'))
         
         return legend_elements
     
@@ -235,7 +235,7 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
     num_pair_rows = (num_pairs + max_cols - 1) // max_cols  # Arredonda para cima
     
     # Criar figura com tamanho apropriado
-    fig = plt.figure(figsize=(12 * min(num_pairs, max_cols), 3 * rows_per_pair * num_pair_rows))
+    fig = plt.figure(figsize=(24 * min(num_pairs, max_cols), 3 * rows_per_pair * num_pair_rows))
     
     # Criar grid de subplots
     gs = fig.add_gridspec(rows_per_pair * num_pair_rows, max_cols, hspace=0.5)
@@ -337,17 +337,16 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
                 ax_main.plot(df['timestamp'].iloc[i:i+2], df[variable].iloc[i:i+2],
                            color=df['color'].iloc[i], linewidth=1)
 
-            # Adicionar legenda de cores apenas no primeiro gráfico
-            if pair_idx == 0 and variable == variables[0]:
-                legend_elements = create_color_legend(fig, ax_main)
+            # Adicionar legenda de cores apenas no primeiro gráfico do primeiro par
+            if pair_idx == 1 and variable == variables[0]:
+                legend_elements = create_color_legend()
                 ax_main.legend(handles=legend_elements, 
-                            loc='upper left', 
-                            bbox_to_anchor=(1.05, 0.5),
-                            prop={'size': 6},  # tamanho da fonte
-                            labelspacing=0.1,  # espaço vertical entre itens
-                            handlelength=1,    # tamanho da linha
-                            handletextpad=0.2  # espaço entre linha e texto
-                            )
+                             loc=legend_pos,  # Posição dentro do gráfico
+                             prop={'size': 8},
+                             labelspacing=0.2,
+                             handlelength=1,
+                             handletextpad=0.2
+                             )
 
             if local_mean and f'{variable}_local_mean' in df.columns:
                 ax_main.plot(df['timestamp'], df[f'{variable}_local_mean'],
