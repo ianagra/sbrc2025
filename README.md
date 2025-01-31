@@ -2,7 +2,7 @@
 
 [![Licença MIT](https://img.shields.io/badge/Licença-MIT-blue.svg)](LICENSE)
 
-Repositório oficial da implementação referente ao artigo **"Análise de Desempenho de Redes pela Combinação de Pontos de Mudanças Estatísticas e Modelo de Sobrevivência"**, submetido ao **Simpósio Brasileiro de Redes de Computadores e Sistemas Distribuídos (SBRC) 2025**.
+Repositório oficial da implementação da metodologia proposta no artigo **"Análise de Desempenho de Redes pela Combinação de Pontos de Mudanças Estatísticas e Modelo de Sobrevivência"**, submetido ao **Simpósio Brasileiro de Redes de Computadores e Sistemas Distribuídos (SBRC) 2025**.
 
 ## Descrição
 
@@ -90,7 +90,7 @@ Para uso com Jupyter Notebook, o kernel sbrc2025 estará automaticamente dispon�
 ## Contato
 
 Para dúvidas, entre em contato:
+Ian Agra - ian@land.ufrj.br
 
-    Ian Agra - ian@land.ufrj.br
-
+---
 Nota: Este trabalho está em revisão para o SBRC 2025. Os resultados podem sofrer ajustes antes da versão final.
