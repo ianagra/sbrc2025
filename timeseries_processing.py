@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
-from VWCD import vwcd, vwcd_mv
+from VWCD import vwcd
 
 def map_mac_to_client(df, mac_column='ClientMac'):
     """
@@ -274,92 +274,7 @@ def detect_changepoints(data, wv, ab, p_thr, vote_p_thr, vote_n_thr, y0, yw, agg
     print(f"Changepoints, contagem de votos e estatísticas locais detectados e salvos em: {output_dir}")
 
 
-def detect_changepoints_mv(data, wv, ab, p_thr, vote_p_thr, vote_n_thr, y0, yw, aggreg):
-    """
-    Detecta pontos de mudança em séries temporais multivariadas.
-    
-    Salva os dados originais, junto com:
-    - Pontos de mudança (changepoints)
-    - Número de votos
-    - Probabilidades dos votos
-    - Probabilidades agregadas
-    - Médias locais (na escala original)
-    - Desvios padrão locais (na escala original)
-    """
-    input_dir = f'datasets/ts_{data}/'
-    output_dir = f'datasets/ts_{data}_cp_mv/'
-    os.makedirs(output_dir, exist_ok=True)
-
-    for file in os.listdir(input_dir):
-        if file.endswith(".parquet"):
-            df = pd.read_parquet(os.path.join(input_dir, file))
-            
-            # Selecionar colunas numéricas
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            
-            # Preparar dados multivariados
-            X = df[numeric_cols].values
-            
-            # Executar VWCD multivariado
-            kargs = {
-                'X': X, 'w': wv, 'w0': wv, 'ab': ab,
-                'p_thr': p_thr, 'vote_p_thr': vote_p_thr,
-                'vote_n_thr': vote_n_thr, 'y0': y0, 'yw': yw, 'aggreg': aggreg
-            }
-            
-            CP, M0, S0, _, vote_counts, vote_probs, agg_probs = vwcd_mv(**kargs)
-            
-            # Criar colunas de changepoints e votos
-            changepoints = np.zeros(len(df), dtype=int)
-            changepoints[CP] = 1
-            
-            # Adicionar colunas globais ao DataFrame
-            df['cp'] = changepoints
-            df['votes'] = vote_counts
-            df['vote_probs'] = vote_probs
-            df['agg_probs'] = agg_probs
-            
-            # Inicializar arrays para médias e desvios padrão locais
-            local_means = np.zeros((len(df), len(numeric_cols)))
-            local_stds = np.zeros((len(df), len(numeric_cols)))
-            
-            # Preencher médias e desvios padrão locais (na escala original)
-            if len(CP) > 0:
-                # Primeiro segmento (do início até o primeiro CP)
-                local_means[:CP[0]] = M0[0]
-                local_stds[:CP[0]] = np.sqrt(np.diag(S0[0]))
-                
-                # Segmentos intermediários
-                for i in range(len(CP)-1):
-                    local_means[CP[i]:CP[i+1]] = M0[i+1]
-                    local_stds[CP[i]:CP[i+1]] = np.sqrt(np.diag(S0[i+1]))
-                
-                # Último segmento (do último CP até o fim)
-                local_means[CP[-1]:] = M0[-1]
-                local_stds[CP[-1]:] = np.sqrt(np.diag(S0[-1]))
-            else:
-                # Se não houver CPs, usar a média e desvio padrão de toda a série
-                local_means[:] = X.mean(axis=0)
-                local_stds[:] = X.std(axis=0, ddof=1)
-            
-            # Adicionar colunas de estatísticas locais para cada variável
-            for i, col in enumerate(numeric_cols):
-                # Médias locais
-                means_column = f'{col}_local_mean'
-                df[means_column] = local_means[:, i]
-                
-                # Desvios padrão locais
-                stds_column = f'{col}_local_std'
-                df[stds_column] = local_stds[:, i]
-            
-            # Salvar resultados
-            output_file = os.path.join(output_dir, file)
-            df.to_parquet(output_file, index=False)
-            
-    print(f"Changepoints, votos e estatísticas locais multivariados detectados e salvos em: {output_dir}")
-
-
-def create_survival_dataset(data, feature, max_gap_days=3, multivariate=False):
+def create_survival_dataset(data, feature, max_gap_days=3):
     """
     Cria um dataset de sobrevivência baseado em séries temporais e pontos de mudança de uma variável específica.
 
@@ -371,8 +286,6 @@ def create_survival_dataset(data, feature, max_gap_days=3, multivariate=False):
         Nome da variável para a qual os changepoints serão considerados.
     max_gap_days : int
         Intervalo máximo de dias permitido entre medições consecutivas antes de considerar um intervalo censurado.
-    multivariate : bool
-        Se True, considera considera os changepoints detectados com a abordagem multivariada do VWCD.
 
     Retorna:
     -------
@@ -385,10 +298,7 @@ def create_survival_dataset(data, feature, max_gap_days=3, multivariate=False):
         - 'event': 1 se o intervalo termina em um changepoint, 0 se for censurado.
     """
     survival_data = []
-    if multivariate:
-        cp_dir = f'datasets/ts_{data}_cp_mv/'
-    else:
-        cp_dir = f'datasets/ts_{data}_cp/'
+    cp_dir = f'datasets/ts_{data}_cp/'
 
     for file in os.listdir(cp_dir):
         if file.endswith(".parquet"):
@@ -399,10 +309,7 @@ def create_survival_dataset(data, feature, max_gap_days=3, multivariate=False):
             df.sort_values(by='timestamp', inplace=True)
 
             # Identificar changepoints
-            if multivariate:
-                changepoint_column = 'cp'
-            else:
-                changepoint_column = f'{feature}_cp'
+            changepoint_column = f'{feature}_cp'
 
             if changepoint_column not in df.columns:
                 print(f"Changepoint column '{changepoint_column}' not found in {file}. Skipping.")
@@ -453,7 +360,7 @@ def create_survival_dataset(data, feature, max_gap_days=3, multivariate=False):
 
                     throughput_upload_local_mean = initial_values.get('throughput_upload_local_mean', np.nan)
                     if pd.isna(throughput_upload_local_mean):
-                        throughput_upload_local_mean = df['throughput_upload_local_mean'].iloc[startthroughput_u_idx:end_idx+1].dropna().values[0] if not df['throughput_upload_local_mean'].iloc[start_idx:end_idx+1].dropna().empty else np.nan
+                        throughput_upload_local_mean = df['throughput_upload_local_mean'].iloc[start_idx:end_idx+1].dropna().values[0] if not df['throughput_upload_local_mean'].iloc[start_idx:end_idx+1].dropna().empty else np.nan
 
                     rtt_download_local_mean = initial_values.get('rtt_download_local_mean', np.nan)
                     if pd.isna(rtt_download_local_mean):
@@ -469,7 +376,7 @@ def create_survival_dataset(data, feature, max_gap_days=3, multivariate=False):
 
                     throughput_upload_local_std = initial_values.get('throughput_upload_local_std', np.nan)
                     if pd.isna(throughput_upload_local_std):
-                        throughput_upload_local_std = df['throughput_upload_local_std'].iloc[startthroughput_u_idx:end_idx+1].dropna().values[0] if not df['throughput_upload_local_std'].iloc[start_idx:end_idx+1].dropna().empty else np.nan
+                        throughput_upload_local_std = df['throughput_upload_local_std'].iloc[start_idx:end_idx+1].dropna().values[0] if not df['throughput_upload_local_std'].iloc[start_idx:end_idx+1].dropna().empty else np.nan
 
                     rtt_download_local_std = initial_values.get('rtt_download_local_std', np.nan)
                     if pd.isna(rtt_download_local_std):
@@ -505,8 +412,6 @@ def create_survival_dataset(data, feature, max_gap_days=3, multivariate=False):
     for col in survival_df.columns:
         if col.startswith('client_') or col.startswith('site_'):
             survival_df[col] = survival_df[col].astype(int)
-    if multivariate:
-        survival_df.to_parquet(f'datasets/survival_{data}_mv.parquet', index=False)
-    else:
-        survival_df.to_parquet(f'datasets/survival_{data}.parquet', index=False)
+
+    survival_df.to_parquet(f'datasets/survival_{data}.parquet', index=False)
     return survival_df

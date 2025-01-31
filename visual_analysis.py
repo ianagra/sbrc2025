@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-def plot_changepoints(data, client, site, variable, ylim=None, multivariate=False, 
+def plot_changepoints(data, client, site, variable, ylim=None, 
                  plot_votes=True, plot_probs=True, save_fig=False):
     """
     Plota os valores de uma variável ao longo do tempo com changepoints destacados como linhas verticais,
@@ -22,8 +22,6 @@ def plot_changepoints(data, client, site, variable, ylim=None, multivariate=Fals
         Nome da variável a ser plotada.
     ylim : tuple or None, optional
         Limites do eixo Y no formato (y_min, y_max). Se None, os limites serão automáticos.
-    multivariate : bool
-        Se True, considera os changepoints detectados com a abordagem multivariada do VWCD.
     plot_votes : bool
         Se True, inclui o gráfico com o número de votos.
     plot_probs : bool
@@ -35,10 +33,7 @@ def plot_changepoints(data, client, site, variable, ylim=None, multivariate=Fals
         Exibe os gráficos selecionados alinhados verticalmente.
     """
     # Diretório onde os arquivos com changepoints estão armazenados
-    if multivariate:
-        input_dir = f'datasets/ts_{data}_cp_mv/'
-    else:
-        input_dir = f'datasets/ts_{data}_cp/'
+    input_dir = f'datasets/ts_{data}_cp/'
     file_name = f"{client}_{site}.parquet"
     file_path = os.path.join(input_dir, file_name)
 
@@ -50,14 +45,9 @@ def plot_changepoints(data, client, site, variable, ylim=None, multivariate=Fals
     df = pd.read_parquet(file_path)
 
     # Verificar se todas as colunas necessárias existem
-    if multivariate:
-        changepoint_column = 'cp'
-        votes_column = 'votes'
-        probs_column = 'agg_probs'
-    else:
-        changepoint_column = f"{variable}_cp"
-        votes_column = f"{variable}_votes"
-        probs_column = f"{variable}_agg_probs"
+    changepoint_column = f"{variable}_cp"
+    votes_column = f"{variable}_votes"
+    probs_column = f"{variable}_agg_probs"
     
     # Lista de colunas necessárias baseada nos parâmetros
     required_columns = [variable, changepoint_column]
@@ -137,16 +127,13 @@ def plot_changepoints(data, client, site, variable, ylim=None, multivariate=Fals
     if save_fig:
         output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        if multivariate:
-            output_file = os.path.join(output_dir, f"{client}_{site}_{variable}_mv.png")
-        else:
-            output_file = os.path.join(output_dir, f"{client}_{site}_{variable}.png")
+        output_file = os.path.join(output_dir, f"{client}_{site}_{variable}.png")
         plt.savefig(output_file)
     plt.show()
 
 
 def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True, 
-               plot_votes=True, plot_probs=True, multivariate=False, thr_max=900,
+               plot_votes=True, plot_probs=True, thr_max=900,
                rtt_max=250, save_fig=False, filename=None, legend_pos='upper left'):
     """
     Plota os valores de todas as variáveis ao longo do tempo para múltiplos pares (cliente, site),
@@ -169,8 +156,6 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
         Se True, inclui gráficos com o número de votos para cada feature.
     plot_probs : bool, default=True
         Se True, inclui gráficos com as probabilidades dos votos para cada feature.
-    multivariate : bool, default=False
-        Se True, usa a abordagem multivariada do VWCD.
     thr_max : int, default=900
         Valor máximo para o eixo y dos gráficos de throughput
     rtt_max : int, default=250
@@ -248,10 +233,7 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
     
     # Primeiro, ler todos os dados para determinar o range global do eixo x
     for client, site in pairs:
-        if multivariate:
-            input_dir = f'datasets/ts_{data}_results_mv'
-        else:
-            input_dir = f'datasets/ts_{data}_results'
+        input_dir = f'datasets/ts_{data}_results'
         file_path = os.path.join(input_dir, f"{client}_{site}.parquet")
         
         if os.path.exists(file_path):
@@ -302,10 +284,7 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
     
     # Plotar dados para cada par
     for pair_idx, (client, site) in enumerate(pairs):
-        if multivariate:
-            input_dir = f'datasets/ts_{data}_results_mv'
-        else:
-            input_dir = f'datasets/ts_{data}_results'
+        input_dir = f'datasets/ts_{data}_results'
         file_name = f"{client}_{site}.parquet"
         file_path = os.path.join(input_dir, file_name)
 
@@ -328,9 +307,9 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
         for variable in variables:
             ax_main = axes_dict[(variable, 'main', pair_idx)]
             
-            changepoint_column = 'cp' if multivariate else f"{variable}_cp"
-            votes_column = 'votes' if multivariate else f"{variable}_votes"
-            probs_column = 'agg_probs' if multivariate else f"{variable}_agg_probs"
+            changepoint_column = f"{variable}_cp"
+            votes_column = f"{variable}_votes"
+            probs_column = f"{variable}_agg_probs"
 
             # Plotar série temporal com cores baseadas na probabilidade
             for i in range(len(df) - 1):
@@ -410,15 +389,12 @@ def plot_pairs(data, pairs, survival=True, local_mean=True, changepoints=True,
     if save_fig:
         output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        if multivariate:
-            output_file = os.path.join(output_dir, f"{filename}_mv.png")
-        else:
-            output_file = os.path.join(output_dir, f"{filename}.png")
+        output_file = os.path.join(output_dir, f"{filename}.png")
         plt.savefig(output_file, bbox_inches='tight')
     plt.show()
 
 
-def plot_decrement(clients, metric, decrement=True, multivariate=False, save_fig=False, filename=None):
+def plot_decrement(clients, metric, decrement=True, save_fig=False, filename=None):
     """
     Analisa os pontos de mudança (cp) em arquivos Parquet para uma lista de clientes e uma métrica 
     e plota gráficos do decremento ou incremento da métrica lado a lado.
@@ -427,19 +403,15 @@ def plot_decrement(clients, metric, decrement=True, multivariate=False, save_fig
         clients (list of str): Lista com os nomes dos clientes para identificar os arquivos.
         metric (str): Nome da métrica a ser analisada.
         decrement (bool): Indica se a análise é de decremento ou incremento.
-        multivariate (bool): Indica se a análise é multivariada.
 
     Returns:
         dict: Dicionário com as contagens de pontos de mudança por threshold para cada cliente.
     """
     # Diretório dos datasets
-    if multivariate:
-        dataset_dir = 'datasets/ts_ndt_results_mv'
-    else:
-        dataset_dir = 'datasets/ts_ndt_results'
+    dataset_dir = 'datasets/ts_ndt_results'
 
     # Coluna de changepoints
-    cp_col = 'cp' if multivariate else f'{metric}_cp'
+    cp_col = f'{metric}_cp'
 
     # Inicializa o dicionário de resultados
     all_results = {}
@@ -504,17 +476,14 @@ def plot_decrement(clients, metric, decrement=True, multivariate=False, save_fig
     if save_fig:
         output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        if multivariate:
-            output_file = os.path.join(output_dir, f"{filename}_mv.png")
-        else:
-            output_file = os.path.join(output_dir, f"{filename}.png")
+        output_file = os.path.join(output_dir, f"{filename}.png")
         plt.savefig(output_file)
     plt.show()
 
     return None
 
 
-def plot_decrement_dual(client_list1, client_list2, metric, decrement=True, multivariate=False, save_fig=False, filename=None):
+def plot_decrement_dual(client_list1, client_list2, metric, decrement=True, save_fig=False, filename=None):
     """
     Analisa os pontos de mudança (cp) em arquivos Parquet para duas listas de clientes e uma métrica, 
     e plota gráficos em duas colunas: uma para cada lista de clientes.
@@ -524,7 +493,6 @@ def plot_decrement_dual(client_list1, client_list2, metric, decrement=True, mult
         client_list2 (list of str): Segunda lista de clientes (plotada na segunda coluna, cor azul).
         metric (str): Nome da métrica a ser analisada.
         decrement (bool): Indica se a análise é de decremento ou incremento.
-        multivariate (bool): Indica se a análise é multivariada.
 
     Returns:
         dict: Dicionário com as contagens de pontos de mudança por threshold para cada cliente.
@@ -533,13 +501,10 @@ def plot_decrement_dual(client_list1, client_list2, metric, decrement=True, mult
         raise ValueError("As duas listas de clientes devem ter o mesmo tamanho.")
 
     # Diretório dos datasets
-    if multivariate:
-        dataset_dir = 'datasets/ts_ndt_results_mv'
-    else:
-        dataset_dir = 'datasets/ts_ndt_results'
+    dataset_dir = 'datasets/ts_ndt_results'
 
     # Coluna de changepoints
-    cp_col = 'cp' if multivariate else f'{metric}_cp'
+    cp_col = f'{metric}_cp'
 
     # Inicializa o dicionário de resultados
     all_results = {}
@@ -597,10 +562,7 @@ def plot_decrement_dual(client_list1, client_list2, metric, decrement=True, mult
     if save_fig:
         output_dir = 'imgs'
         os.makedirs(output_dir, exist_ok=True)
-        if multivariate:
-            output_file = os.path.join(output_dir, f"{filename}_mv.png")
-        else:
-            output_file = os.path.join(output_dir, f"{filename}.png")
+        output_file = os.path.join(output_dir, f"{filename}.png")
         plt.savefig(output_file)
     plt.show()
 

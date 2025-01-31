@@ -21,7 +21,7 @@ def decode_one_hot(df, prefix):
     return df
 
 
-def assign_labels(survival_df, data, timestamp_col='timestamp', survival_functions=None, multivariate=False):
+def assign_labels(survival_df, data, timestamp_col='timestamp', survival_functions=None):
     """
     Associa os rótulos de clusters gerados pelo SurvMixClust às séries temporais originais.
 
@@ -37,20 +37,14 @@ def assign_labels(survival_df, data, timestamp_col='timestamp', survival_functio
         Nome da coluna de timestamp nas séries temporais.
     survival_functions : pd.DataFrame, default=None
         Funções de sobrevivência para cada intervalo de tempo.
-    multivariate : bool, default=False
-        Se True, considera os changepoints detectados com a abordagem multivariada do VWCD.
 
     Retorna:
     -------
     None
         Salva as séries temporais atualizadas com os rótulos dos clusters no diretório `output_dir`.
     """
-    if multivariate:
-        series_dir = f'datasets/ts_{data}_cp_mv/'
-        output_dir = f'datasets/ts_{data}_results_mv/'
-    else:
-        series_dir = f'datasets/ts_{data}_cp/'
-        output_dir = f'datasets/ts_{data}_results/'
+    series_dir = f'datasets/ts_{data}_cp/'
+    output_dir = f'datasets/ts_{data}_results/'
 
     os.makedirs(output_dir, exist_ok=True)
 
