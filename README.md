@@ -68,21 +68,21 @@ Este repositório contém o código-fonte, datasets e scripts necessários para 
 
 ### Crie o ambiente Conda usando o arquivo `environment.yml`:
 
-    ```bash
-    conda env create -f environment.yml
-    ```
+   ```bash
+   conda env create -f environment.yml
+   ```
 
 ### Ative o ambiente:
 
-    ```bash
-    conda activate sbrc2025
-    ```
+   ```bash
+   conda activate sbrc2025
+   ```
 
 ### Verifique a instalação:
 
-    ```bash
-    python -c "import lifelines, ruptures; print('Ambiente configurado!')"
-    ```
+   ```bash
+   python -c "import lifelines, ruptures; print('Ambiente configurado!')"
+   ```
 
 O ambiente inclui 1.213 dependências (Python + R). A instalação pode levar 10-15 minutos dependendo da conexão.
 Para uso com Jupyter Notebook, o kernel sbrc2025 estará automaticamente disponível.
